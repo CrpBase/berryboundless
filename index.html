@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>JezzBall True Mechanics</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const img = new Image();
+img.src = "photo.jpg";
+
+const gridSize = 10;
+const cols = Math.floor(canvas.width / gridSize);
+const rows = Math.floor(canvas.height / gridSize);
+
+let map = Array(rows).fill(0).map(() => Array(cols).fill(0)); // 0 - black, 1 - revealed
+
+// Стартова чорна зона по центру, 70% ширини
+const gameWidth = Math.floor(cols * 0.7);
+const gameHeight = Math.floor(rows * 0.7);
+const offsetX = Math.floor((cols - gameWidth) / 2);
+const offsetY = Math.floor((rows - gameHeight) / 2);
+
+// дозволити рух ворогів лише в цій зоні
+let gameArea = { x: offsetX, y: offsetY, w: gameWidth, h: gameHeight };
+
+let player = {
+  x: Math.floor(offsetX + gameWidth / 2),
+  y: offsetY + gameHeight - 1,
+  trail: [],
+  drawing: false,
+  tick: 0
+};
+
+let dir = null;
+
+const enemies = [
+  { x: offsetX * gridSize + 40, y: offsetY * gridSize + 30, vx: 3, vy: 2, r: 6 },
+  { x: (offsetX + gameWidth) * gridSize - 40, y: (offsetY + gameHeight) * gridSize - 30, vx: -2, vy: -3, r: 6 }
+];
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") dir = "up";
+  if (e.key === "ArrowDown") dir = "down";
+  if (e.key === "ArrowLeft") dir = "left";
+  if (e.key === "ArrowRight") dir = "right";
+});
+
+function updatePlayer() {
+  player.tick++;
+  if (player.tick % 2 !== 0) return; // гравець повільніший
+
+  if (!dir) return;
+
+  let nx = player.x;
+  let ny = player.y;
+  if (dir === "up") ny--;
+  if (dir === "down") ny++;
+  if (dir === "left") nx--;
+  if (dir === "right") nx++;
+
+  if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) return;
+
+  if (map[ny][nx] === 0 && !player.drawing) {
+    player.drawing = true;
+    player.trail = [];
+  }
+
+  player.x = nx;
+  player.y = ny;
+
+  if (player.drawing) {
+    player.trail.push({ x: nx, y: ny });
+
+    if (map[ny][nx] === 1) {
+      fillZone();
+      player.drawing = false;
+      player.trail = [];
+    }
+  }
+}
+
+function fillZone() {
+  const visited = Array(rows).fill(0).map(() => Array(cols).fill(false));
+
+  function flood(x, y) {
+    let stack = [{ x, y }];
+    while (stack.length) {
+      let { x, y } = stack.pop();
+      if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+      if (visited[y][x] || map[y][x] === 1) continue;
+      visited[y][x] = true;
+      stack.push({ x: x+1, y });
+      stack.push({ x: x-1, y });
+      stack.push({ x, y: y+1 });
+      stack.push({ x, y: y-1 });
+    }
+  }
+
+  // flood з 4-х кутів ЗОВНІ ігрового поля
+  flood(0, 0);
+  flood(cols - 1, 0);
+  flood(0, rows - 1);
+  flood(cols - 1, rows - 1);
+
+  // ті, куди flood не дійшов — це захоплена зона
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (!visited[y][x]) map[y][x] = 1;
+    }
+  }
+}
+
+function updateEnemies() {
+  for (let e of enemies) {
+    e.x += e.vx;
+    e.y += e.vy;
+
+    if (e.x < gameArea.x * gridSize + e.r || e.x > (gameArea.x + gameArea.w) * gridSize - e.r) e.vx *= -1;
+    if (e.y < gameArea.y * gridSize + e.r || e.y > (gameArea.y + gameArea.h) * gridSize - e.r) e.vy *= -1;
+  }
+}
+
+function checkCollision() {
+  if (!player.drawing) return;
+  for (let e of enemies) {
+    for (let p of player.trail) {
+      let px = p.x * gridSize + gridSize / 2;
+      let py = p.y * gridSize + gridSize / 2;
+      if (Math.hypot(e.x - px, e.y - py) < e.r + gridSize / 2) {
+        alert("Game Over!");
+        location.reload();
+      }
+    }
+  }
+}
+
+function draw() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (map[y][x] === 1) {
+        ctx.drawImage(img, x * gridSize, y * gridSize, gridSize, gridSize, x * gridSize, y * gridSize, gridSize, gridSize);
+      }
+    }
+  }
+
+  // Trail
+  if (player.trail.length > 0) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.trail[0].x * gridSize + gridSize / 2, player.trail[0].y * gridSize + gridSize / 2);
+    for (let i = 1; i < player.trail.length; i++) {
+      let p = player.trail[i];
+      ctx.lineTo(p.x * gridSize + gridSize / 2, p.y * gridSize + gridSize / 2);
+    }
+    ctx.stroke();
+  }
+
+  // Enemies
+  ctx.fillStyle = "red";
+  for (let e of enemies) {
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Player
+  ctx.fillStyle = "lime";
+  ctx.beginPath();
+  ctx.arc(player.x * gridSize + gridSize / 2, player.y * gridSize + gridSize / 2, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function loop() {
+  updatePlayer();
+  updateEnemies();
+  checkCollision();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+img.onload = () => loop();
+</script>
+</body>
+</html>
