@@ -150,12 +150,37 @@ function init() {
   }
 
   function draw() {
-    ctx.drawImage(img, fieldX, fieldY, fieldW, fieldH);
+    // малюємо повністю чорне тло
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // малюємо зображення, але тільки через маску
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        if (mask[y][x] !== 1) {
-          ctx.fillStyle = (mask[y][x] === 2) ? "white" : "black";
+        if (mask[y][x] === 1) {
+          ctx.drawImage(
+            img,
+            x * gridSize * (img.width / fieldW),
+            y * gridSize * (img.height / fieldH),
+            gridSize * (img.width / fieldW),
+            gridSize * (img.height / fieldH),
+            fieldX + x * gridSize,
+            fieldY + y * gridSize,
+            gridSize,
+            gridSize
+          );
+        }
+      }
+    }
+
+    // малюємо чорну або білу маску поверх неактивних
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (mask[y][x] === 0) {
+          ctx.fillStyle = "black";
+          ctx.fillRect(fieldX + x * gridSize, fieldY + y * gridSize, gridSize, gridSize);
+        } else if (mask[y][x] === 2) {
+          ctx.fillStyle = "white";
           ctx.fillRect(fieldX + x * gridSize, fieldY + y * gridSize, gridSize, gridSize);
         }
       }
