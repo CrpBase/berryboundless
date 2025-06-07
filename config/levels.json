@@ -1,0 +1,13 @@
+
+{
+  "levels": [
+    {
+      "id": "level1",
+      "name": "Перший рівень",
+      "image": "levels/level1.jpg",
+      "playerSpeed": 3,
+      "enemySpeed": 1,
+      "enemies": 2
+    }
+  ]
+}
