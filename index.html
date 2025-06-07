@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Photo Cutter</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; background: #111; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const img = new Image();
+img.src = "photo.jpg";
+
+const gridSize = 20;
+const cols = Math.ceil(canvas.width / gridSize);
+const rows = Math.ceil(canvas.height / gridSize);
+const revealed = Array(rows).fill().map(() => Array(cols).fill(false));
+
+let player = { x: 0, y: 0, dir: null, drawing: false };
+let enemies = [
+  { x: 100, y: 100, vx: 3, vy: 2, r: 8 },
+  { x: 300, y: 150, vx: -2, vy: 3, r: 8 }
+];
+
+let trail = [];
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") player.dir = "up";
+  if (e.key === "ArrowDown") player.dir = "down";
+  if (e.key === "ArrowLeft") player.dir = "left";
+  if (e.key === "ArrowRight") player.dir = "right";
+});
+document.addEventListener("keyup", e => {
+  if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) player.dir = null;
+});
+
+function updatePlayer() {
+  if (!player.dir) return;
+  player.drawing = true;
+
+  let oldX = player.x, oldY = player.y;
+
+  if (player.dir === "up") player.y -= 1;
+  if (player.dir === "down") player.y += 1;
+  if (player.dir === "left") player.x -= 1;
+  if (player.dir === "right") player.x += 1;
+
+  if (player.x < 0 || player.x >= cols || player.y < 0 || player.y >= rows) {
+    // Заповнити прямокутник
+    fillArea(trail);
+    trail = [];
+    player = { x: Math.max(0, Math.min(cols - 1, player.x)), y: Math.max(0, Math.min(rows - 1, player.y)), dir: null, drawing: false };
+    return;
+  }
+
+  trail.push({ x: player.x, y: player.y });
+
+  for (let e of enemies) {
+    const px = player.x * gridSize + gridSize / 2;
+    const py = player.y * gridSize + gridSize / 2;
+    if (Math.hypot(e.x - px, e.y - py) < e.r + gridSize / 2) {
+      alert("Game Over!");
+      location.reload();
+    }
+  }
+}
+
+function fillArea(cells) {
+  for (let p of cells) {
+    if (p.x >= 0 && p.y >= 0 && p.y < rows && p.x < cols) {
+      revealed[p.y][p.x] = true;
+    }
+  }
+}
+
+function updateEnemies() {
+  for (let e of enemies) {
+    e.x += e.vx;
+    e.y += e.vy;
+    if (e.x < e.r || e.x > canvas.width - e.r) e.vx *= -1;
+    if (e.y < e.r || e.y > canvas.height - e.r) e.vy *= -1;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  // Темна маска
+  ctx.fillStyle = "black";
+  ctx.globalAlpha = 0.9;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalAlpha = 1;
+
+  // Reveal
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (revealed[y][x]) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x * gridSize, y * gridSize, gridSize, gridSize);
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+    }
+  }
+
+  // Trail
+  ctx.fillStyle = "lime";
+  for (let p of trail) {
+    ctx.fillRect(p.x * gridSize, p.y * gridSize, gridSize, gridSize);
+  }
+
+  // Enemies
+  ctx.fillStyle = "red";
+  for (let e of enemies) {
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function loop() {
+  updatePlayer();
+  updateEnemies();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+img.onload = () => loop();
+</script>
+</body>
+</html>
