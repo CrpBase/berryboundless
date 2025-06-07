@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1,
+    "image": "./levels/level1.jpg",
+    "playerSpeed": 2,
+    "enemySpeed": 3,
+    "enemies": 2
+  }
+]
