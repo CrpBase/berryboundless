@@ -1,0 +1,197 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Vault Reveal</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const img = new Image();
+img.src = "photo.jpg";
+
+const gridSize = 10;
+const cols = Math.floor(canvas.width / gridSize);
+const rows = Math.floor(canvas.height / gridSize);
+
+// Поле 70% по центру
+const fieldW = Math.floor(cols * 0.7);
+const fieldH = Math.floor(rows * 0.7);
+const fieldX = Math.floor((cols - fieldW) / 2);
+const fieldY = Math.floor((rows - fieldH) / 2);
+
+let map = Array(rows).fill(0).map(() => Array(cols).fill(0)); // все чорне
+
+let player = {
+  x: fieldX + Math.floor(fieldW / 2),
+  y: fieldY + fieldH - 1,
+  trail: [],
+  drawing: false,
+  tick: 0
+};
+
+let dir = null;
+
+const enemies = [
+  { x: (fieldX + 5) * gridSize, y: (fieldY + 5) * gridSize, vx: 3, vy: 2, r: 6 },
+  { x: (fieldX + fieldW - 5) * gridSize, y: (fieldY + fieldH - 5) * gridSize, vx: -2, vy: -3, r: 6 }
+];
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") dir = "up";
+  if (e.key === "ArrowDown") dir = "down";
+  if (e.key === "ArrowLeft") dir = "left";
+  if (e.key === "ArrowRight") dir = "right";
+});
+
+function updatePlayer() {
+  player.tick++;
+  if (player.tick % 2 !== 0) return;
+
+  if (!dir) return;
+  let nx = player.x;
+  let ny = player.y;
+  if (dir === "up") ny--;
+  if (dir === "down") ny++;
+  if (dir === "left") nx--;
+  if (dir === "right") nx++;
+
+  if (nx < fieldX || ny < fieldY || nx >= fieldX + fieldW || ny >= fieldY + fieldH) return;
+
+  if (map[ny][nx] === 0 && !player.drawing) {
+    player.drawing = true;
+    player.trail = [];
+  }
+
+  player.x = nx;
+  player.y = ny;
+
+  if (player.drawing) {
+    player.trail.push({ x: nx, y: ny });
+    if (map[ny][nx] === 1) {
+      fillZone();
+      player.drawing = false;
+      player.trail = [];
+    }
+  }
+}
+
+function fillZone() {
+  const visited = Array(rows).fill(0).map(() => Array(cols).fill(false));
+
+  function flood(x, y) {
+    const stack = [{ x, y }];
+    while (stack.length) {
+      const { x, y } = stack.pop();
+      if (x < fieldX || y < fieldY || x >= fieldX + fieldW || y >= fieldY + fieldH) continue;
+      if (visited[y][x] || map[y][x] === 1) continue;
+      visited[y][x] = true;
+      stack.push({ x: x + 1, y });
+      stack.push({ x: x - 1, y });
+      stack.push({ x, y: y + 1 });
+      stack.push({ x, y: y - 1 });
+    }
+  }
+
+  // flood з країв фрейму
+  for (let x = fieldX; x < fieldX + fieldW; x++) {
+    flood(x, fieldY);
+    flood(x, fieldY + fieldH - 1);
+  }
+  for (let y = fieldY; y < fieldY + fieldH; y++) {
+    flood(fieldX, y);
+    flood(fieldX + fieldW - 1, y);
+  }
+
+  for (let y = fieldY; y < fieldY + fieldH; y++) {
+    for (let x = fieldX; x < fieldX + fieldW; x++) {
+      if (!visited[y][x]) map[y][x] = 1;
+    }
+  }
+}
+
+function updateEnemies() {
+  for (let e of enemies) {
+    e.x += e.vx;
+    e.y += e.vy;
+    const gx = e.x / gridSize;
+    const gy = e.y / gridSize;
+    if (gx < fieldX || gx >= fieldX + fieldW) e.vx *= -1;
+    if (gy < fieldY || gy >= fieldY + fieldH) e.vy *= -1;
+  }
+}
+
+function checkCollision() {
+  if (!player.drawing) return;
+  for (let e of enemies) {
+    for (let p of player.trail) {
+      const px = p.x * gridSize + gridSize / 2;
+      const py = p.y * gridSize + gridSize / 2;
+      if (Math.hypot(e.x - px, e.y - py) < e.r + gridSize / 2) {
+        alert("Game Over!");
+        location.reload();
+      }
+    }
+  }
+}
+
+function draw() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let y = fieldY; y < fieldY + fieldH; y++) {
+    for (let x = fieldX; x < fieldX + fieldW; x++) {
+      if (map[y][x] === 1) {
+        ctx.drawImage(img, x * gridSize, y * gridSize, gridSize, gridSize,
+          x * gridSize, y * gridSize, gridSize, gridSize);
+      }
+    }
+  }
+
+  if (player.trail.length > 0) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.trail[0].x * gridSize + gridSize / 2, player.trail[0].y * gridSize + gridSize / 2);
+    for (let i = 1; i < player.trail.length; i++) {
+      const p = player.trail[i];
+      ctx.lineTo(p.x * gridSize + gridSize / 2, p.y * gridSize + gridSize / 2);
+    }
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "red";
+  for (let e of enemies) {
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "lime";
+  ctx.beginPath();
+  ctx.arc(player.x * gridSize + gridSize / 2, player.y * gridSize + gridSize / 2, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function loop() {
+  updatePlayer();
+  updateEnemies();
+  checkCollision();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+img.onload = () => loop();
+</script>
+</body>
+</html>
