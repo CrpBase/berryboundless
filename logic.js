@@ -117,56 +117,45 @@ function init() {
     mask[rows - 1][x] = 2;
   }
 
-  // Запускаємо flood fill з кожної точки рамки
-  for (let y = 0; y < rows; y++) {
-    floodFill(0, y);
-    floodFill(cols - 1, y);
-  }
-  for (let x = 0; x < cols; x++) {
-    floodFill(x, 0);
-    floodFill(x, rows - 1);
+  // Запускаємо flood fill з рамки
+  floodFill();
+}
+
+function floodFill() {
+  const visited = Array(rows).fill(0).map(() => Array(cols).fill(false));
+
+  function flood(x, y) {
+    const stack = [{ x, y }];
+    while (stack.length) {
+      const { x, y } = stack.pop();
+      if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+      if (visited[y][x]) continue;
+      if (mask[y][x] === 1) continue;
+      visited[y][x] = true;
+      stack.push({ x: x + 1, y });
+      stack.push({ x: x - 1, y });
+      stack.push({ x, y: y + 1 });
+      stack.push({ x, y: y - 1 });
+    }
   }
 
-  // Всі не досяжні з рамки стають mask = 1 (відрізані зони)
+  for (let y = 0; y < rows; y++) {
+    flood(0, y);
+    flood(cols - 1, y);
+  }
+  for (let x = 0; x < cols; x++) {
+    flood(x, 0);
+    flood(x, rows - 1);
+  }
+
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      if (mask[y][x] === 0) mask[y][x] = 1;
+      if (!visited[y][x]) {
+        mask[y][x] = 1;
+      }
     }
   }
 }
-    const visited = Array(rows).fill(0).map(() => Array(cols).fill(false));
-
-    function flood(x, y) {
-      const stack = [{ x, y }];
-      while (stack.length) {
-        const { x, y } = stack.pop();
-        if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
-        if (visited[y][x]) continue;
-        if (mask[y][x] === 1) continue;
-        visited[y][x] = true;
-        stack.push({ x: x + 1, y });
-        stack.push({ x: x - 1, y });
-        stack.push({ x, y: y + 1 });
-        stack.push({ x, y: y - 1 });
-      }
-    }
-
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        if (mask[y][x] === 2 && !visited[y][x]) {
-          flood(x, y);
-        }
-      }
-    }
-
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        if (!visited[y][x]) {
-          mask[y][x] = 1;
-        }
-      }
-    }
-  }
 
   function updateEnemies() {
     for (let e of enemies) {
