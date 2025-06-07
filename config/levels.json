@@ -2,7 +2,7 @@
 {
   "levels": [
     {
-      "id": "level1",
+      "id": 1,
       "name": "Перший рівень",
       "image": "levels/level1.jpg",
       "playerSpeed": 3,
